@@ -1,0 +1,28 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "plate_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plateNormalized", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "plate_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventType", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "plate_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "gateId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    }
+  ]
+}

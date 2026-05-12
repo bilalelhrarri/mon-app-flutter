@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "763593095313",
+    "project_id": "medapp-bilal-01",
+    "storage_bucket": "medapp-bilal-01.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:763593095313:android:0f9e441176df43cd2b2730",
+        "android_client_info": {
+          "package_name": "com.example.tangier_med_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJhLCDi_dSyVv99HZ2KF5_DKIec2AXJT8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
