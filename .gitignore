@@ -43,3 +43,5 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+medapp-bilal-01-firebase-adminsdk-fbsvc-e5faa7df76.json 
+serviceAccountKey.json.json 
