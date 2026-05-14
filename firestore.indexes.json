@@ -24,5 +24,6 @@
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }
-  ]
+  ],
+  "fieldOverrides": []
 }
