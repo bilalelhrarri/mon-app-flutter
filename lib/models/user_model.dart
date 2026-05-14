@@ -7,6 +7,7 @@ class UserModel {
   final String role;
   final String gateId;
   final DateTime createdAt;
+  final bool disabled;
 
   UserModel({
     required this.uid,
@@ -15,6 +16,7 @@ class UserModel {
     required this.role,
     required this.gateId,
     required this.createdAt,
+    this.disabled = false,
   });
 
   Map<String, dynamic> toMap() => {
@@ -24,6 +26,7 @@ class UserModel {
         'role': role,
         'gateId': gateId,
         'createdAt': Timestamp.fromDate(createdAt),
+        'disabled': disabled,
       };
 
   factory UserModel.fromMap(String id, Map<String, dynamic> map) => UserModel(
@@ -33,5 +36,6 @@ class UserModel {
         role: map['role'] ?? 'operator',
         gateId: map['gateId'] ?? 'G01',
         createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        disabled: map['disabled'] ?? false,
       );
 }

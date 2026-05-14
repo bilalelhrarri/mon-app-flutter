@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/app_state.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -13,12 +14,20 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _emailCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
+  final _passCtrl  = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
   late AnimationController _animCtrl;
-  late Animation<double> _fadeAnim;
-  late Animation<Offset> _slideAnim;
+  late Animation<double>   _fadeAnim;
+  late Animation<Offset>   _slideAnim;
+
+  static const Color bgDeep    = Color(0xFF0A1628);
+  static const Color bgCard    = Color(0xFF0D1F36);
+  static const Color accent    = Color(0xFF1A6FA8);
+  static const Color accentLt  = Color(0xFF7AADCC);
+  static const Color textPrim  = Color(0xFFE8F4FD);
+  static const Color textMuted = Color(0xFF5B8DB8);
+  static const Color borderClr = Color(0xFF1E3A5F);
 
   @override
   void initState() {
@@ -43,6 +52,19 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
+  Future<void> _showForgotPassword() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: bgCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        side: BorderSide(color: borderClr),
+      ),
+      builder: (ctx) => _ForgotPasswordSheet(parentContext: context),
+    );
+  }
+
   Future<void> _login() async {
     if (_emailCtrl.text.trim().isEmpty || _passCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -57,7 +79,10 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted && appState.user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('البريد الإلكتروني أو كلمة المرور غير صحيحة'),
+            content: Text(
+              'Compte désactivé ou identifiants incorrects',
+              style: TextStyle(fontSize: 12),
+            ),
             backgroundColor: Color(0xFFB22222),
           ),
         );
@@ -78,14 +103,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    const Color bgDeep   = Color(0xFF0A1628);
-    const Color bgCard   = Color(0xFF0D1F36);
-    const Color accent   = Color(0xFF1A6FA8);
-    const Color accentLt = Color(0xFF7AADCC);
-    const Color textPrim = Color(0xFFE8F4FD);
-    const Color textMuted= Color(0xFF5B8DB8);
-    const Color borderClr= Color(0xFF1E3A5F);
-
     return Scaffold(
       backgroundColor: bgDeep,
       body: SafeArea(
@@ -95,11 +112,11 @@ class _LoginScreenState extends State<LoginScreen>
             position: _slideAnim,
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 32, vertical: 24),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // ── Logo ──────────────────────────────────────
                     const _TangerMedLogo(),
                     const SizedBox(height: 12),
                     const Text(
@@ -115,43 +132,25 @@ class _LoginScreenState extends State<LoginScreen>
                     const Text(
                       'PORT AUTHORITY',
                       style: TextStyle(
-                        color: textMuted,
-                        fontSize: 11,
-                        letterSpacing: 3,
-                      ),
+                          color: textMuted, fontSize: 11, letterSpacing: 3),
                     ),
                     const SizedBox(height: 32),
-
-                    // ── Divider ───────────────────────────────────
                     Container(height: 1, color: borderClr),
                     const SizedBox(height: 28),
-
                     const Text(
                       'CONNEXION OPÉRATEUR',
                       style: TextStyle(
-                        color: accentLt,
-                        fontSize: 11,
-                        letterSpacing: 3,
-                      ),
+                          color: accentLt, fontSize: 11, letterSpacing: 3),
                     ),
                     const SizedBox(height: 24),
-
-                    // ── Email ─────────────────────────────────────
                     _buildField(
                       controller: _emailCtrl,
                       label: 'ADRESSE EMAIL',
                       hint: 'operateur@tangermed.ma',
                       icon: Icons.alternate_email_rounded,
                       keyboardType: TextInputType.emailAddress,
-                      bgCard: bgCard,
-                      borderClr: borderClr,
-                      textPrim: textPrim,
-                      textMuted: textMuted,
-                      accent: accent,
                     ),
                     const SizedBox(height: 14),
-
-                    // ── Password ──────────────────────────────────
                     _buildField(
                       controller: _passCtrl,
                       label: 'MOT DE PASSE',
@@ -160,15 +159,8 @@ class _LoginScreenState extends State<LoginScreen>
                       obscure: _obscure,
                       onToggleObscure: () =>
                           setState(() => _obscure = !_obscure),
-                      bgCard: bgCard,
-                      borderClr: borderClr,
-                      textPrim: textPrim,
-                      textMuted: textMuted,
-                      accent: accent,
                     ),
                     const SizedBox(height: 28),
-
-                    // ── Button ────────────────────────────────────
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -176,7 +168,8 @@ class _LoginScreenState extends State<LoginScreen>
                         onPressed: _loading ? null : _login,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accent,
-                          disabledBackgroundColor: accent.withOpacity(0.4),
+                          disabledBackgroundColor:
+                              accent.withValues(alpha: 0.4),
                           foregroundColor: textPrim,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -185,28 +178,22 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                         child: _loading
                             ? const SizedBox(
-                                width: 20,
-                                height: 20,
+                                width: 20, height: 20,
                                 child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
+                                    strokeWidth: 2, color: Colors.white),
                               )
                             : const Text(
                                 'CONNEXION',
                                 style: TextStyle(
-                                  fontSize: 13,
-                                  letterSpacing: 3,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                    fontSize: 13,
+                                    letterSpacing: 3,
+                                    fontWeight: FontWeight.w600),
                               ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // ── Forgot password ───────────────────────────
+                    const SizedBox(height: 12),
                     TextButton(
-                      onPressed: () {},
+                      onPressed: _showForgotPassword,
                       child: const Text(
                         'Mot de passe oublié ?',
                         style: TextStyle(color: textMuted, fontSize: 12),
@@ -227,11 +214,6 @@ class _LoginScreenState extends State<LoginScreen>
     required String label,
     required String hint,
     required IconData icon,
-    required Color bgCard,
-    required Color borderClr,
-    required Color textPrim,
-    required Color textMuted,
-    required Color accent,
     TextInputType keyboardType = TextInputType.text,
     bool obscure = false,
     VoidCallback? onToggleObscure,
@@ -239,25 +221,20 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: textMuted,
-            fontSize: 10,
-            letterSpacing: 2.5,
-          ),
-        ),
+        Text(label,
+            style: const TextStyle(
+                color: textMuted, fontSize: 10, letterSpacing: 2.5)),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
           obscureText: obscure,
           keyboardType: keyboardType,
-          style: TextStyle(color: textPrim, fontSize: 14),
+          style: const TextStyle(color: textPrim, fontSize: 14),
           cursorColor: accent,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle:
-                TextStyle(color: textMuted.withOpacity(0.5), fontSize: 13),
+            hintStyle: TextStyle(
+                color: textMuted.withValues(alpha: 0.5), fontSize: 13),
             prefixIcon: Icon(icon, color: textMuted, size: 18),
             suffixIcon: onToggleObscure != null
                 ? IconButton(
@@ -265,23 +242,22 @@ class _LoginScreenState extends State<LoginScreen>
                       obscure
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
-                      color: textMuted,
-                      size: 18,
+                      color: textMuted, size: 18,
                     ),
                     onPressed: onToggleObscure,
                   )
                 : null,
             filled: true,
             fillColor: bgCard,
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            contentPadding: const EdgeInsets.symmetric(
+                vertical: 14, horizontal: 16),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: borderClr),
+              borderSide: const BorderSide(color: borderClr),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: accent, width: 1.5),
+              borderSide: const BorderSide(color: accent, width: 1.5),
             ),
           ),
         ),
@@ -290,17 +266,178 @@ class _LoginScreenState extends State<LoginScreen>
   }
 }
 
-// ── Logo widget ────────────────────────────────────────────────────────────────
+// ── Forgot Password Sheet ─────────────────────────────────────────────────────
+class _ForgotPasswordSheet extends StatefulWidget {
+  final BuildContext parentContext;
+  const _ForgotPasswordSheet({required this.parentContext});
+
+  @override
+  State<_ForgotPasswordSheet> createState() => _ForgotPasswordSheetState();
+}
+
+class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
+  final _emailCtrl = TextEditingController();
+  bool _sending = false;
+
+  static const Color bgDeep    = Color(0xFF0A1628);
+  static const Color accent    = Color(0xFF1A6FA8);
+  static const Color accentLt  = Color(0xFF7AADCC);
+  static const Color textPrim  = Color(0xFFE8F4FD);
+  static const Color textMuted = Color(0xFF5B8DB8);
+  static const Color borderClr = Color(0xFF1E3A5F);
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty) return;
+    setState(() => _sending = true);
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) Navigator.pop(context);
+      if (widget.parentContext.mounted) {
+        ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+          SnackBar(
+            content: Text('Email envoyé à $email',
+                style: const TextStyle(color: textPrim, fontSize: 12)),
+            backgroundColor: const Color(0xFF0D3320),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: Color(0xFF1A5C38)),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _sending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Email introuvable',
+                style: const TextStyle(color: textPrim, fontSize: 12)),
+            backgroundColor: const Color(0xFF3D0000),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: Color(0xFF7A0000)),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24, 20, 24,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: borderClr,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'MOT DE PASSE OUBLIÉ',
+            style: TextStyle(
+              color: accentLt,
+              fontSize: 11,
+              letterSpacing: 3,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Entrez votre email — vous recevrez un lien de réinitialisation automatiquement.',
+            style: TextStyle(color: textMuted, fontSize: 12, height: 1.5),
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _emailCtrl,
+            keyboardType: TextInputType.emailAddress,
+            style: const TextStyle(color: textPrim, fontSize: 14),
+            cursorColor: accent,
+            decoration: InputDecoration(
+              hintText: 'operateur@tangermed.ma',
+              hintStyle: TextStyle(
+                  color: textMuted.withValues(alpha: 0.5), fontSize: 13),
+              prefixIcon: const Icon(Icons.alternate_email_rounded,
+                  color: textMuted, size: 18),
+              filled: true,
+              fillColor: bgDeep,
+              contentPadding: const EdgeInsets.symmetric(
+                  vertical: 14, horizontal: 16),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: borderClr),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: accent, width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _sending ? null : _send,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accent,
+                disabledBackgroundColor: accent.withValues(alpha: 0.4),
+                foregroundColor: textPrim,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: _sending
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text(
+                      'ENVOYER LE LIEN',
+                      style: TextStyle(
+                          fontSize: 12,
+                          letterSpacing: 2.5,
+                          fontWeight: FontWeight.w600),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Logo ──────────────────────────────────────────────────────────────────────
 class _TangerMedLogo extends StatelessWidget {
   const _TangerMedLogo();
 
   @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(72, 72),
-      painter: _HexLogoPainter(),
-    );
-  }
+  Widget build(BuildContext context) =>
+      CustomPaint(size: const Size(72, 72), painter: _HexLogoPainter());
 }
 
 class _HexLogoPainter extends CustomPainter {
@@ -310,7 +447,6 @@ class _HexLogoPainter extends CustomPainter {
     final double cy = size.height / 2;
     final double r  = size.width / 2;
 
-    // Hexagon background
     final hexPath = Path();
     for (int i = 0; i < 6; i++) {
       final angle = (i * 60 - 90) * pi / 180;
@@ -319,17 +455,13 @@ class _HexLogoPainter extends CustomPainter {
       i == 0 ? hexPath.moveTo(x, y) : hexPath.lineTo(x, y);
     }
     hexPath.close();
-
     canvas.drawPath(hexPath, Paint()..color = const Color(0xFF0D2E4F));
-    canvas.drawPath(
-      hexPath,
-      Paint()
-        ..color = const Color(0xFF1A6FA8)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
+    canvas.drawPath(hexPath,
+        Paint()
+          ..color = const Color(0xFF1A6FA8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5);
 
-    // Gate icon
     final gatePaint = Paint()
       ..color = const Color(0xFF7AADCC)
       ..style = PaintingStyle.stroke
@@ -338,11 +470,8 @@ class _HexLogoPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final gate = Path();
-    final double l   = cx - 14;
-    final double rm  = cx + 14;
-    final double top = cy - 8;
-    final double bot = cy + 10;
-    final double mid = cy;
+    final l   = cx - 14, rm = cx + 14;
+    final top = cy - 8,  bot = cy + 10, mid = cy;
     gate.moveTo(l, bot);
     gate.lineTo(l, top + 4);
     gate.lineTo(cx - 6, top);
@@ -353,22 +482,18 @@ class _HexLogoPainter extends CustomPainter {
     gate.lineTo(rm, bot);
     canvas.drawPath(gate, gatePaint);
 
-    // Wave
-    final wavePaint = Paint()
-      ..color = const Color(0xFF1A6FA8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
     final wave = Path();
     wave.moveTo(cx - 18, cy + 14);
     wave.quadraticBezierTo(cx, cy + 6, cx + 18, cy + 14);
-    canvas.drawPath(wave, wavePaint);
+    canvas.drawPath(
+        wave,
+        Paint()
+          ..color = const Color(0xFF1A6FA8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2);
 
-    // Center dot
-    canvas.drawCircle(
-      Offset(cx, cy + 10),
-      2.5,
-      Paint()..color = const Color(0xFF7AADCC),
-    );
+    canvas.drawCircle(Offset(cx, cy + 10), 2.5,
+        Paint()..color = const Color(0xFF7AADCC));
   }
 
   @override

@@ -14,7 +14,13 @@ class AuthService {
       );
       if (result.user != null) {
         final userModel = await _getUserFromFirestore(result.user!.uid);
-        print('✅ signIn success, user: ${userModel?.role}');
+
+        // ── Check if disabled ──
+        if (userModel != null && userModel.disabled) {
+          await _auth.signOut();
+          return null;
+        }
+
         return userModel;
       }
     } catch (e) {
@@ -38,8 +44,6 @@ class AuthService {
   Future<UserModel?> _getUserFromFirestore(String uid) async {
     try {
       final doc = await _db.collection('users').doc(uid).get();
-      print('📄 Document exists: ${doc.exists}');
-      print('📄 Document data: ${doc.data()}');
       if (doc.exists) {
         return UserModel.fromMap(uid, doc.data() as Map<String, dynamic>);
       }

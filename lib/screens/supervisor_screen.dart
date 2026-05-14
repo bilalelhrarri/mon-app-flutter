@@ -5,12 +5,18 @@ import '../providers/app_state.dart';
 import 'history_screen.dart';
 import 'truck_detail_screen.dart';
 
-class SupervisorScreen extends StatelessWidget {
-  SupervisorScreen({super.key});
+class SupervisorScreen extends StatefulWidget {
+  const SupervisorScreen({super.key});
 
+  @override
+  State<SupervisorScreen> createState() => _SupervisorScreenState();
+}
+
+class _SupervisorScreenState extends State<SupervisorScreen>
+    with SingleTickerProviderStateMixin {
   final FirestoreService _fs = FirestoreService();
+  late TabController _tabController;
 
-  // ── Colors ────────────────────────────────────────────────────────────
   static const Color bgDeep    = Color(0xFF0A1628);
   static const Color bgCard    = Color(0xFF0D1F36);
   static const Color accent    = Color(0xFF1A6FA8);
@@ -23,153 +29,29 @@ class SupervisorScreen extends StatelessWidget {
   static const Color colorRed  = Color(0xFFE74C3C);
 
   @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: bgDeep,
       appBar: _buildAppBar(context),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _fs.getCurrentSiteStatus(),
-        builder: (ctx, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'خطأ: ${snapshot.error}',
-                style: const TextStyle(color: colorRed),
-              ),
-            );
-          }
-          if (!snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(color: accent),
-            );
-          }
-
-          final int count   = snapshot.data!['count'] as int;
-          final List trucks = snapshot.data!['trucks'] as List;
-          final int alerts  = trucks.where((t) {
-            return ((t as Map<String, dynamic>)['dwellHours'] as int) >= 24;
-          }).length;
-
-          // Compute entries/exits if available, fallback to count
-          final int entries = snapshot.data!['entries'] as int? ?? count;
-          final int exits   = snapshot.data!['exits']   as int? ?? 0;
-
-          return Column(
-            children: [
-              // ── Stats grid ─────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 1.55,
-                  children: [
-                    _StatCard(
-                      label: 'CAMIONS PRÉSENTS',
-                      value: '$count',
-                      valueColor: colorGreen,
-                      icon: Icons.local_shipping_outlined,
-                    ),
-                    _StatCard(
-                      label: "ENTRÉES AUJOURD'HUI",
-                      value: '$entries',
-                      valueColor: accentLt,
-                      icon: Icons.login_rounded,
-                    ),
-                    _StatCard(
-                      label: "SORTIES AUJOURD'HUI",
-                      value: '$exits',
-                      valueColor: colorAmber,
-                      icon: Icons.logout_rounded,
-                    ),
-                    _StatCard(
-                      label: 'ALERTES DURÉE',
-                      value: '$alerts',
-                      valueColor: alerts > 0 ? colorRed : textMuted,
-                      icon: Icons.warning_amber_rounded,
-                    ),
-                  ],
-                ),
-              ),
-
-              // ── Section header ──────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Row(
-                  children: [
-                    const Text(
-                      'CAMIONS SUR SITE',
-                      style: TextStyle(
-                        color: accentLt,
-                        fontSize: 10,
-                        letterSpacing: 2.5,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '$count actifs',
-                      style: const TextStyle(
-                        color: textMuted,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Container(height: 1, color: borderClr),
-
-              // ── Truck list ──────────────────────────────────────
-              Expanded(
-                child: trucks.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.local_shipping_outlined,
-                                size: 48, color: borderClr),
-                            SizedBox(height: 12),
-                            Text(
-                              'لا توجد شاحنات داخل الميناء',
-                              style: TextStyle(color: textMuted, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: EdgeInsets.zero,
-                        itemCount: trucks.length,
-                        separatorBuilder: (_, __) =>
-                            Container(height: 1, color: bgCard),
-                        itemBuilder: (ctx, i) {
-                          final truck = trucks[i] as Map<String, dynamic>;
-                          final hours = truck['dwellHours'] as int;
-                          return _TruckTile(
-                            truck: truck,
-                            hours: hours,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TruckDetailScreen(
-                                  plateNumber: truck['plate'] as String,
-                                  entryTime: truck['entryTime'] as String,
-                                  dwellHours: hours,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          );
-        },
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildDashboardTab(),
+          _buildOperatorsTab(),
+        ],
       ),
-
-      // ── FAB ──────────────────────────────────────────────────────
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         child: SizedBox(
@@ -198,6 +80,219 @@ class SupervisorScreen extends StatelessWidget {
     );
   }
 
+  // ── Dashboard Tab ─────────────────────────────────────────────
+  Widget _buildDashboardTab() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _fs.getCurrentSiteStatus(),
+      builder: (ctx, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('خطأ: ${snapshot.error}',
+                style: const TextStyle(color: colorRed)),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(
+              child: CircularProgressIndicator(color: accent));
+        }
+
+        final int count   = snapshot.data!['count'] as int;
+        final List trucks = snapshot.data!['trucks'] as List;
+        final int alerts  = trucks.where((t) {
+          return ((t as Map<String, dynamic>)['dwellHours'] as int) >= 24;
+        }).length;
+        final int entries = snapshot.data!['entries'] as int? ?? count;
+        final int exits   = snapshot.data!['exits']   as int? ?? 0;
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 1.55,
+                children: [
+                  _StatCard(
+                    label: 'CAMIONS PRÉSENTS',
+                    value: '$count',
+                    valueColor: colorGreen,
+                    icon: Icons.local_shipping_outlined,
+                  ),
+                  _StatCard(
+                    label: "ENTRÉES AUJOURD'HUI",
+                    value: '$entries',
+                    valueColor: accentLt,
+                    icon: Icons.login_rounded,
+                  ),
+                  _StatCard(
+                    label: "SORTIES AUJOURD'HUI",
+                    value: '$exits',
+                    valueColor: colorAmber,
+                    icon: Icons.logout_rounded,
+                  ),
+                  _StatCard(
+                    label: 'ALERTES DURÉE',
+                    value: '$alerts',
+                    valueColor: alerts > 0 ? colorRed : textMuted,
+                    icon: Icons.warning_amber_rounded,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  const Text('CAMIONS SUR SITE',
+                      style: TextStyle(
+                          color: accentLt, fontSize: 10, letterSpacing: 2.5)),
+                  const Spacer(),
+                  Text('$count actifs',
+                      style: const TextStyle(color: textMuted, fontSize: 10)),
+                ],
+              ),
+            ),
+            Container(height: 1, color: borderClr),
+            Expanded(
+              child: trucks.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.local_shipping_outlined,
+                              size: 48, color: borderClr),
+                          SizedBox(height: 12),
+                          Text('لا توجد شاحنات داخل الميناء',
+                              style:
+                                  TextStyle(color: textMuted, fontSize: 13)),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: EdgeInsets.zero,
+                      itemCount: trucks.length,
+                      separatorBuilder: (_, __) =>
+                          Container(height: 1, color: bgCard),
+                      itemBuilder: (ctx, i) {
+                        final truck = trucks[i] as Map<String, dynamic>;
+                        final hours = truck['dwellHours'] as int;
+                        return _TruckTile(
+                          truck: truck,
+                          hours: hours,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TruckDetailScreen(
+                                plateNumber: truck['plate'] as String,
+                                entryTime: truck['entryTime'] as String,
+                                dwellHours: hours,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ── Operators Tab ─────────────────────────────────────────────
+  Widget _buildOperatorsTab() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fs.getOperators(),
+      builder: (ctx, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('خطأ: ${snapshot.error}',
+                style: const TextStyle(color: colorRed)),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(
+              child: CircularProgressIndicator(color: accent));
+        }
+
+        final operators = snapshot.data!;
+
+        return operators.isEmpty
+            ? const Center(
+                child: Text('لا يوجد operators',
+                    style: TextStyle(color: textMuted, fontSize: 13)),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.only(top: 8),
+                itemCount: operators.length,
+                separatorBuilder: (_, __) =>
+                    Container(height: 1, color: bgCard),
+                itemBuilder: (ctx, i) {
+                  final op = operators[i];
+                  final bool disabled = op['disabled'] == true;
+                  return _OperatorTile(
+                    op: op,
+                    disabled: disabled,
+                    onToggle: () async {
+                      if (disabled) {
+                        await _fs.enableOperator(op['uid'] as String);
+                      } else {
+                        await _fs.disableOperator(op['uid'] as String);
+                      }
+                      setState(() {});
+                    },
+                    onDelete: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: bgCard,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: const BorderSide(color: borderClr),
+                          ),
+                          title: const Text('Supprimer l\'opérateur',
+                              style: TextStyle(
+                                  color: textPrim, fontSize: 14)),
+                          content: Text(
+                            'Voulez-vous supprimer ${op['email']} ?',
+                            style: const TextStyle(
+                                color: textMuted, fontSize: 12),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(ctx, false),
+                              child: const Text('ANNULER',
+                                  style: TextStyle(
+                                      color: textMuted, fontSize: 11)),
+                            ),
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(ctx, true),
+                              child: const Text('SUPPRIMER',
+                                  style: TextStyle(
+                                      color: colorRed, fontSize: 11)),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await _fs.deleteOperatorFromFirestore(
+                            op['uid'] as String);
+                        setState(() {});
+                      }
+                    },
+                  );
+                },
+              );
+      },
+    );
+  }
+
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: bgCard,
@@ -217,17 +312,21 @@ class SupervisorScreen extends StatelessWidget {
           ),
           Text(
             'TANGER MED · GATE OPS',
-            style: TextStyle(
-              color: textMuted,
-              fontSize: 9,
-              letterSpacing: 2,
-            ),
+            style: TextStyle(color: textMuted, fontSize: 9, letterSpacing: 2),
           ),
         ],
       ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: borderClr),
+      bottom: TabBar(
+        controller: _tabController,
+        indicatorColor: accent,
+        labelColor: accentLt,
+        unselectedLabelColor: textMuted,
+        labelStyle:
+            const TextStyle(fontSize: 10, letterSpacing: 2),
+        tabs: const [
+          Tab(text: 'DASHBOARD'),
+          Tab(text: 'OPÉRATEURS'),
+        ],
       ),
       actions: [
         IconButton(
@@ -242,7 +341,136 @@ class SupervisorScreen extends StatelessWidget {
   }
 }
 
-// ── Stat card widget ──────────────────────────────────────────────────────────
+// ── Operator Tile ─────────────────────────────────────────────────────────────
+class _OperatorTile extends StatelessWidget {
+  final Map<String, dynamic> op;
+  final bool disabled;
+  final VoidCallback onToggle;
+  final VoidCallback onDelete;
+
+  const _OperatorTile({
+    required this.op,
+    required this.disabled,
+    required this.onToggle,
+    required this.onDelete,
+  });
+
+  static const Color bgCard    = Color(0xFF0D1F36);
+  static const Color accent    = Color(0xFF1A6FA8);
+  static const Color textPrim  = Color(0xFFE8F4FD);
+  static const Color textMuted = Color(0xFF5B8DB8);
+  static const Color borderClr = Color(0xFF1E3A5F);
+  static const Color colorGreen= Color(0xFF2ECC71);
+  static const Color colorRed  = Color(0xFFE74C3C);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          // Avatar
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: disabled
+                  ? const Color(0xFF1A1A2E)
+                  : const Color(0xFF0D2E4F),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: disabled ? borderClr : accent,
+              ),
+            ),
+            child: Icon(
+              Icons.person_outline_rounded,
+              color: disabled ? textMuted : accent,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  op['name'] as String? ?? 'Opérateur',
+                  style: TextStyle(
+                    color: disabled ? textMuted : textPrim,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  op['email'] as String? ?? '',
+                  style: const TextStyle(color: textMuted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+
+          // Status badge
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: disabled
+                  ? const Color(0xFF1A1A2E)
+                  : const Color(0xFF0D3320),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(
+                color: disabled
+                    ? borderClr
+                    : const Color(0xFF1A5C38),
+              ),
+            ),
+            child: Text(
+              disabled ? 'DÉSACTIVÉ' : 'ACTIF',
+              style: TextStyle(
+                color: disabled ? textMuted : colorGreen,
+                fontSize: 9,
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // Toggle button
+          IconButton(
+            onPressed: onToggle,
+            icon: Icon(
+              disabled
+                  ? Icons.toggle_off_rounded
+                  : Icons.toggle_on_rounded,
+              color: disabled ? textMuted : colorGreen,
+              size: 28,
+            ),
+            tooltip: disabled ? 'Activer' : 'Désactiver',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 4),
+
+          // Delete button
+          IconButton(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline_rounded,
+                color: colorRed, size: 20),
+            tooltip: 'Supprimer',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Stat Card ─────────────────────────────────────────────────────────────────
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
@@ -261,39 +489,33 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: SupervisorScreen.bgCard,
+        color: const Color(0xFF0D1F36),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: SupervisorScreen.borderClr),
+        border: Border.all(color: const Color(0xFF1E3A5F)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: SupervisorScreen.borderClr, size: 20),
+          Icon(icon, color: const Color(0xFF1E3A5F), size: 20),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: SupervisorScreen.textMuted,
-              fontSize: 9,
-              letterSpacing: 1.5,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              color: valueColor,
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(
+                  color: Color(0xFF5B8DB8),
+                  fontSize: 9,
+                  letterSpacing: 1.5)),
+          Text(value,
+              style: TextStyle(
+                  color: valueColor,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700)),
         ],
       ),
     );
   }
 }
 
-// ── Truck tile widget ─────────────────────────────────────────────────────────
+// ── Truck Tile ────────────────────────────────────────────────────────────────
 class _TruckTile extends StatelessWidget {
   final Map<String, dynamic> truck;
   final int hours;
@@ -307,8 +529,8 @@ class _TruckTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isAlert  = hours >= 24;
-    final bool isWarning= hours >= 8 && hours < 24;
+    final bool isAlert   = hours >= 24;
+    final bool isWarning = hours >= 8 && hours < 24;
 
     final Color avatarBg = isAlert
         ? const Color(0xFF3D0000)
@@ -323,10 +545,10 @@ class _TruckTile extends StatelessWidget {
             : const Color(0xFF1A5C38);
 
     final Color badgeColor = isAlert
-        ? SupervisorScreen.colorRed
+        ? const Color(0xFFE74C3C)
         : isWarning
-            ? SupervisorScreen.colorAmber
-            : SupervisorScreen.colorGreen;
+            ? const Color(0xFFF39C12)
+            : const Color(0xFF2ECC71);
 
     final Color badgeBg = isAlert
         ? const Color(0xFF3D0000)
@@ -336,13 +558,12 @@ class _TruckTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      splashColor: SupervisorScreen.accent.withOpacity(0.1),
-      highlightColor: SupervisorScreen.bgCard,
+      splashColor: const Color(0xFF1A6FA8).withValues(alpha: 0.1),
+      highlightColor: const Color(0xFF0D1F36),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // Avatar
             Container(
               width: 38,
               height: 38,
@@ -360,36 +581,26 @@ class _TruckTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-
-            // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    truck['plate'] as String,
-                    style: const TextStyle(
-                      color: SupervisorScreen.textPrim,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                    ),
-                  ),
+                  Text(truck['plate'] as String,
+                      style: const TextStyle(
+                          color: Color(0xFFE8F4FD),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1)),
                   const SizedBox(height: 2),
-                  Text(
-                    'Entrée ${truck['entryTime']}',
-                    style: const TextStyle(
-                      color: SupervisorScreen.textMuted,
-                      fontSize: 11,
-                    ),
-                  ),
+                  Text('Entrée ${truck['entryTime']}',
+                      style: const TextStyle(
+                          color: Color(0xFF5B8DB8), fontSize: 11)),
                 ],
               ),
             ),
-
-            // Badge
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: badgeBg,
                 borderRadius: BorderRadius.circular(5),
@@ -398,20 +609,15 @@ class _TruckTile extends StatelessWidget {
               child: Text(
                 '${hours}H${isAlert ? " !" : ""}',
                 style: TextStyle(
-                  color: badgeColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                ),
+                    color: badgeColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1),
               ),
             ),
-
             const SizedBox(width: 8),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: SupervisorScreen.borderClr,
-              size: 18,
-            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: Color(0xFF1E3A5F), size: 18),
           ],
         ),
       ),

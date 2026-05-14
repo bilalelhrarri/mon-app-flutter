@@ -60,4 +60,25 @@ class FirestoreService {
 
     return {'count': trucks.length, 'trucks': trucks};
   }
+
+  // ── Operators ─────────────────────────────────────────────────
+  Future<List<Map<String, dynamic>>> getOperators() async {
+    final snap = await _db
+        .collection('users')
+        .where('role', isEqualTo: 'operator')
+        .get();
+    return snap.docs.map((d) => {'uid': d.id, ...d.data()}).toList();
+  }
+
+  Future<void> disableOperator(String uid) async {
+    await _db.collection('users').doc(uid).update({'disabled': true});
+  }
+
+  Future<void> enableOperator(String uid) async {
+    await _db.collection('users').doc(uid).update({'disabled': false});
+  }
+
+  Future<void> deleteOperatorFromFirestore(String uid) async {
+    await _db.collection('users').doc(uid).delete();
+  }
 }
